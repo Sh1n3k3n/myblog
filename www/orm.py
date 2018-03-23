@@ -33,8 +33,8 @@ async def create_pool(loop, **kwargs):
     __pool = await aiomysql.create_pool(
         host=kwargs.get('host', 'localhost'),
         port=kwargs.get('port', 3306),
-        user=kwargs['root'],
-        password=kwargs['xlh2018'],
+        user=kwargs['user'],
+        password=kwargs['password'],
         db=kwargs['db'],
         charset=kwargs.get('charset', 'utf8'),
         autocommit=kwargs.get('autocommit', True),
@@ -302,3 +302,11 @@ class Model(dict, metaclass=ModelMeatclass):
         rows = await execute(self.__delete__, args)
         if rows != 1:
             logging.warn('failed to remove by primary key: affected rows: %s' % rows)
+
+#测试
+"""
+loop = asyncio.get_event_loop()
+loop.run_until_complete(create_pool(host='127.0.0.1', port=3306, user='root', password='xlh2018', db='test',loop=loop))
+rs = loop.run_until_complete(select('select * from user', None))
+print('result: %s' % rs)
+"""
