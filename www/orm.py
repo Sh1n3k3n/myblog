@@ -142,7 +142,7 @@ class BooleanField(Field):
         super().__init__(name, 'boolean', False, default)
 
 
-class InterField(Field):
+class IntegerField(Field):
 
     def __init__(self, name=None, primary_key=False, default=0):
         super().__init__(name, 'bigint', primary_key, default)
