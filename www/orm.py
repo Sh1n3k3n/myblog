@@ -27,23 +27,28 @@ def log(sql, args=()):
 
 
 # 创建连接池,__pool 默认编码为utf8 自动提交事务为True,不需要再commit提交事务
-async def create_pool(loop, **kwargs):
+async def create_pool(loop, **kw):
     logging.info('Create database connection pool...')
     global __pool
     __pool = await aiomysql.create_pool(
-        host=kwargs.get('host', 'localhost'),
-        port=kwargs.get('port', 3306),
-        user=kwargs['user'],
-        password=kwargs['password'],
-        db=kwargs['db'],
-        charset=kwargs.get('charset', 'utf8'),
-        autocommit=kwargs.get('autocommit', True),
-        maxsize=kwargs.get('maxsize', 10),
-        minsize=kwargs.get('minsize', 1),
+        host=kw.get('host', 'localhost'),
+        port=kw.get('port', 3306),
+        user=kw['user'],
+        password=kw['password'],
+        db=kw['db'],
+        charset=kw.get('charset', 'utf8'),
+        autocommit=kw.get('autocommit', True),
+        maxsize=kw.get('maxsize', 10),
+        minsize=kw.get('minsize', 1),
         loop=loop
     )
 
-
+async def close_loop():
+    logging.info('close database connection pool...')
+    global __pool
+    if __pool is not None:
+        __pool.close()
+        await __pool.wait_closed()
 # =============================================
 #
 #                   SELECT
@@ -196,10 +201,8 @@ class ModelMeatclass(type):
         attrs['__fields__'] = fileds  # 其他列属性名
         # 以下为4中常用操作的，`%s` 反引号为了保证sql语句执行正确不与sql关键字冲突
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
-        attrs['__insert__'] = 'insert into  `%s` (%s, `%s`) values (%s)' % (
-        tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
-        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
-        tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fileds)), primaryKey)
+        attrs['__insert__'] = 'insert into  `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
+        attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fileds)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
         return type.__new__(cls, name, bases, attrs)
 
@@ -302,11 +305,3 @@ class Model(dict, metaclass=ModelMeatclass):
         rows = await execute(self.__delete__, args)
         if rows != 1:
             logging.warn('failed to remove by primary key: affected rows: %s' % rows)
-
-#测试
-"""
-loop = asyncio.get_event_loop()
-loop.run_until_complete(create_pool(host='127.0.0.1', port=3306, user='root', password='xlh2018', db='test',loop=loop))
-rs = loop.run_until_complete(select('select * from user', None))
-print('result: %s' % rs)
-"""
