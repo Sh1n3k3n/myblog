@@ -18,9 +18,6 @@ import aiomysql
 
 __autoor__ = 'Ken'
 
-
-
-
 # 记录sql命令
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)
@@ -179,9 +176,11 @@ class ModelMeatclass(type):
         mappings = dict()  # 保存列类型的对象
         fileds = []  # 记录列属性名
         primaryKey = None
+
+        #这段代码是用来处理数据查找主键，检查主键是否和存在或冲突，将非主键的列属性值存入fileds，主键
         for k, v in attrs.items():
-            if isinstance(v, Field):  # 是列名就保存进mappings 字典中
-                logging.info('  found mapping: %s ==> %s' % (k, v));
+            if isinstance(v, Field):  # 是Field类型就保存进mappings 字典中
+                logging.info('found mapping: %s ==> %s' % (k, v));
                 mappings[k] = v
                 if v.primary_key:  # 查找主键
                     if primaryKey:
@@ -194,12 +193,12 @@ class ModelMeatclass(type):
             raise StandardError('Primary key not found.')
         for k in mappings.keys():
             attrs.pop(k)  # 删除attrs里属性，防止与实例属性冲突
-        escaped_fields = list(map(lambda f: '`%s`' % f, fileds))
+        escaped_fields = list(map(lambda f: '`%s`' % f, fileds))    #将 fileds变成 `值`的形式便于sql识别处理
         attrs['__mappings__'] = mappings  # 保存属性和列的映射关系
         attrs['__table__'] = tableName
         attrs['__primary_key__'] = primaryKey  # 主键属性名
         attrs['__fields__'] = fileds  # 其他列属性名
-        # 以下为4中常用操作的，`%s` 反引号为了保证sql语句执行正确不与sql关键字冲突
+        # 以下为4中常用操作的sql语句模板，`%s` 反引号为了保证sql语句执行正确不与sql关键字冲突，传入的值自动进入格式化好的语句模板中
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
         attrs['__insert__'] = 'insert into  `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fileds)), primaryKey)
@@ -217,7 +216,7 @@ class Model(dict, metaclass=ModelMeatclass):
     def __init__(self, **kw):
         super(Model, self).__init__(**kw)
 
-    def __getattr__(self, key):
+    def __getattr__(self, key):     #拦截点运算符号（复习下多重继承-定制类）eg model.key --> model[key]
         try:
             return self[key]
         except KeyError:
@@ -227,7 +226,7 @@ class Model(dict, metaclass=ModelMeatclass):
         self[key] = value
 
     def getValue(self, key):
-        return getattr(self, key, None)
+        return getattr(self, key, None)     #getartt返回属性值，eg a = ClassA() getattr(a, 'key') 返回ClassA实例a属性key的值
 
     def getValueOrDefault(self, key):
         value = getattr(self, key, None)
@@ -239,7 +238,22 @@ class Model(dict, metaclass=ModelMeatclass):
                 setattr(self, key, value)
         return value
 
-    @classmethod     #将类里定义的方法声明为类的类方法
+    '''
+    classmethod
+    修饰函数不需要实例化，不需要self参数，但第一个参数需要式表示自身的cls参数，可以用来调用类的属性，类的方法，实例化对象
+    eg:
+    class A(object):
+        bar = 1
+        ...
+        @classmethod
+        def func1(cls):
+            print('func2:',cls.bar)
+            
+    A.func1()
+    >>> func2: 1
+    '''
+
+    @classmethod
     async def findAll(cls, where=None, args=None, **kw):
         ' find objects by where clause.'
         sql = [cls.__select__]
