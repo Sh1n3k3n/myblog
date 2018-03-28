@@ -16,3 +16,17 @@
 __author__ = 'Michael Liao'
 
 ' url handlers '
+
+from www.coroweb import get
+
+import asyncio
+
+'example'
+@get('/')
+async def index(request):
+    return '<h1>Awesome</h1>'
+
+@get('/hello')
+async def hello(request):
+    return '<h1>Hello World!</h1>'
+
