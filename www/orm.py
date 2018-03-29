@@ -266,13 +266,13 @@ class Model(dict, metaclass=ModelMeatclass):
         if orderBy:
             sql.append('order by')
             sql.append(orderBy)
-        limit = kw.get('limit', int)
+        limit = kw.get('limit',None)
         if limit is not None:
             sql.append('limit')
-            if isinstance(limit, int):
+            if isinstance(limit,int):
                 sql.append('?')
                 args.append(limit)
-            elif isinstance(limit, tuple) and len(limit) == 2:
+            elif isinstance(limit,tuple) and len(limit) == 2:
                 sql.append('?, ?')
                 args.extend(limit)
             else:
