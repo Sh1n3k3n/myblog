@@ -37,7 +37,7 @@ async def index(request):
     }
 '''
 
-COOKIE_NAME = 'awesesion'
+COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
 
 # =============================================
@@ -58,7 +58,8 @@ def index(request):
     ]
     return {
         '__template__': 'blogs.html',
-        'blogs': blogs
+        'blogs': blogs,
+        '__user__': request.__user__
     }
 
 @get('/api/users')
