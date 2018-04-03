@@ -259,7 +259,7 @@ class Model(dict, metaclass=ModelMeatclass):
         sql = [cls.__select__]
         if where:
             sql.append('where')
-            sql.appehnd(where)
+            sql.append(where)
         if args is None:
             args = []
         orderBy = kw.get('orderBy', None)
