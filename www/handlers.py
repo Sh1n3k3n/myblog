@@ -77,9 +77,9 @@ def user2cookie(user, max_age):
     :return:
     '''
     expires = str(int(time.time() + max_age))
-    s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
+    s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)    #通过用户id，passwd，time 生成摘要
     L = [user.id, expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
-    return '-'.join(L)
+    return '-'.join(L)  #cookie为  “uid-到期时间-HASH字符串”
 
 async def cookie2user(cookie_str):
     '''
@@ -93,13 +93,13 @@ async def cookie2user(cookie_str):
         L = cookie_str.split('-')
         if len(L) !=3:
             return None
-        uid, expires, sha1 = L
+        uid, expires, sha1 = L  #提取cookie中的数据 uid 到期时间  SHA1 HASH串
         if int(expires) < time.time():
             return None
         user = await User.find(uid)
         if user is None:
             return None
-        s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
+        s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)    #重新生成HASH串与cookie中的HASH串比对 防篡改 验证过期
         if sha1 != hashlib.sha1(s.encode('utf-8')).hexdigest():
             logging.info('invalid sha1')
             return None
@@ -126,7 +126,7 @@ async def authenticate(*, email, passwd):
         raise APIValueError('email','Invaild email.')
     if not passwd:
         raise APIValueError('passwd','Invaild password')
-    users = await User.findAll('email=?',[email])
+    users = await User.findAll('email=?',[email])   #通过email获得 user信息
     if len(users) ==0:
         raise APIValueError('email', 'Email not exist.')
     user = users[0]
@@ -134,12 +134,12 @@ async def authenticate(*, email, passwd):
     sha1 = hashlib.sha1()
     sha1.update(user.id.encode('utf-8'))
     sha1.update(b':')
-    sha1.update(passwd.encode('utf-8'))
+    sha1.update(passwd.encode('utf-8'))  #这里将通过email获取的的user.id + ':' + 输入的passwd 组合进行计算，接着与数据库的user.passwd密码摘要（参考register及api/users）比对判断密码是否正确，
     if user.passwd != sha1.hexdigest():
         raise APIValueError('passwd','Invaild password.')
     # authenticate ok set cookie
     r = web.Response()
-    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
+    r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)  #
     user.passwd = '******'
     r.content_type = 'application/json'
     r.body = json.dumps(user, ensure_ascii=False).encode('utf-8')
@@ -155,6 +155,14 @@ def signout(request):
 _RE_EMAIL = re.compile(r'^[a-z0-9\.\-\_]+\@[a-z0-9\-\_]+(\.[a-z0-9\-\_]+){1,4}$')
 _RE_SHA1 = re.compile(r'^[0-9a-f]{40}$')
 
+
+# =============================================
+#
+#            用户注册接口
+#
+# =============================================
+# 完成用户注册，入库，并生成cookie返回浏览器
+# =============================================
 @post('/api/users')
 async def api_register_user(*, email, name, passwd):
     if not name or not name.strip():
@@ -167,7 +175,7 @@ async def api_register_user(*, email, name, passwd):
     if len(users) > 0:
         raise APIError('register:failed', 'email', 'Email is already in use.')
     uid = next_id()
-    sha1_passwd = '%s:%s' % (uid, passwd)
+    sha1_passwd = '%s:%s' % (uid, passwd)   #组成 uid + ':' + register.html中js脚本从email + ':' + passwd组合计算生成的SHA1摘要字符串，作为用户密码SHA1摘要存入数据库
     user = User(id=uid, name=name.strip(), email=email, passwd=hashlib.sha1(sha1_passwd.encode('utf-8')).hexdigest(), image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(email.encode('utf-8')).hexdigest())
     await user.save()
     # make session cookit
