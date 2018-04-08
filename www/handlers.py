@@ -23,7 +23,7 @@ import www.marketdown2 as marketdown2
 from aiohttp import web
 from www.coroweb import get, post
 from www.models import User, Comment, Blog, next_id
-from www.apis import APIValueError, APIResourceNotFoundError
+from www.apis import Page, APIValueError, APIResourceNotFoundError
 from www.config import configs
 
 '''
@@ -218,7 +218,7 @@ def text2html(text):
 
 @get('/blog/{id}')
 async def get_blog(id):
-    blog = await Blog.find()
+    blog = await Blog.find(id)
     comments = await Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
     for c in comments:
         c.html_content = text2html(c.content)
@@ -236,11 +236,27 @@ def manage_create_blog():
         'id': '',
         'action': '/api/blogs'
     }
+@get('/manage/blogs')
+def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
+    }
 
 @get('/api/blogs/{id}')
 async def api_get_blog(*, id):
     blog  = await Blog.find(id)
     return blog
+
+@get('/api/blogs')
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
 
 @post('/api/blogs')
 async def api_create_blog(request, *, name, summary, content):
@@ -254,3 +270,10 @@ async def api_create_blog(request, *, name, summary, content):
     blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image, name=name.strip(), summary=summary.strip(), content=content.strip())
     await blog.save()
     return blog
+
+@post('/api/blogs/{id}/delete')
+async def api_delete_blog(request, *, id):
+    check_admin(request)
+    blog = await Blog.find(id)
+    await blog.remove()
+    return dict(id=id)
